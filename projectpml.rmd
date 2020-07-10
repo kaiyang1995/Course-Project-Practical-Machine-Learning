@@ -1,0 +1,177 @@
+# load files
+training<-read.csv("pml-training.csv")
+testing<-read.csv("pml-testing.csv")
+
+#remove N.A values
+traindata<- training[, colSums(is.na(training)) == 0]
+testdata<- testing[, colSums(is.na(testing)) == 0]
+
+#remove first 7 colmuns 
+
+traindata <- traindata[, -c(1:7)]
+testdata <- testdata[, -c(1:7)]
+
+set.seed(1234)
+library(caret)
+
+
+#create test,cross validation and training set
+
+validdata<-testdata
+inTrain<-createDataPartition(traindata$classe,p=0.7,list=FALSE)
+traindata<-traindata[inTrain,]
+testdata<-traindata[-inTrain,]
+
+#remove near zero variables
+
+NZV<-nearZeroVar(traindata)
+traindata<-traindata[,-NZV]
+testdata<-testdata[,-NZV]
+
+#prediction using classification tree
+library(rpart)
+decTree<-rpart(classe~.,data=traindata,method="class")
+predict1<-predict(decTree,testdata,type="class")
+confusionMatrix(table(predict1,testdata$classe))
+
+Confusion Matrix and Statistics
+
+
+predict1    A    B    C    D    E
+A 1067  105    9   24    9
+B   40  502   59   63   77
+C   28   90  611  116   86
+D   11   49   41  423   41
+E   19   41   18   46  548
+
+Overall Statistics
+
+Accuracy : 0.7642         
+95% CI : (0.751, 0.7771)
+No Information Rate : 0.2826         
+P-Value [Acc > NIR] : < 2.2e-16      
+
+Kappa : 0.7015         
+
+Mcnemar's Test P-Value : < 2.2e-16      
+
+Statistics by Class:
+
+                     Class: A Class: B Class: C Class: D Class: E
+Sensitivity            0.9159   0.6379   0.8279   0.6295   0.7201
+Specificity            0.9503   0.9284   0.9055   0.9589   0.9631
+Pos Pred Value         0.8789   0.6775   0.6563   0.7487   0.8155
+Neg Pred Value         0.9663   0.9157   0.9602   0.9300   0.9383
+Prevalence             0.2826   0.1909   0.1790   0.1630   0.1846
+Detection Rate         0.2588   0.1218   0.1482   0.1026   0.1329
+Detection Prevalence   0.2944   0.1797   0.2258   0.1370   0.1630
+Balanced Accuracy      0.9331   0.7831   0.8667   0.7942   0.8416
+
+# try random forest
+
+controlRF <- trainControl(method="cv", number=3, verboseIter=FALSE)
+modelfit<-train(classe~.,method="rf",data=traindata,trControl=controlRF)
+confusionMatrix(table(predict2,testdata$classe))
+predict2<-predict(modelfit,newdata=testdata)
+confusionMatrix(table(predict2,testdata$classe))
+
+Confusion Matrix and Statistics
+
+        
+predict2    A    B    C    D    E
+       A 1165    0    0    0    0
+       B    0  787    0    0    0
+       C    0    0  738    0    0
+       D    0    0    0  672    0
+       E    0    0    0    0  761
+
+Overall Statistics
+                                     
+               Accuracy : 1          
+                 95% CI : (0.9991, 1)
+    No Information Rate : 0.2826     
+    P-Value [Acc > NIR] : < 2.2e-16  
+                                     
+                  Kappa : 1          
+                                     
+ Mcnemar's Test P-Value : NA         
+
+Statistics by Class:
+
+                     Class: A Class: B Class: C Class: D Class: E
+Sensitivity            1.0000   1.0000    1.000    1.000   1.0000
+Specificity            1.0000   1.0000    1.000    1.000   1.0000
+Pos Pred Value         1.0000   1.0000    1.000    1.000   1.0000
+Neg Pred Value         1.0000   1.0000    1.000    1.000   1.0000
+Prevalence             0.2826   0.1909    0.179    0.163   0.1846
+Detection Rate         0.2826   0.1909    0.179    0.163   0.1846
+Detection Prevalence   0.2826   0.1909    0.179    0.163   0.1846
+Balanced Accuracy      1.0000   1.0000    1.000    1.000   1.0000
+
+
+# try generalised boosted regression model
+
+controlGBM <- trainControl(method = "repeatedcv", number = 5, repeats = 1)
+modFitGBM  <- train(classe ~ ., data=traindata, method = "gbm",trControl = controlGBM, verbose = FALSE)
+predict_gbm<-predict(modFitGBM,testdata)
+confusionMatrix(table(predict_gbm,testdata$classe))
+
+Confusion Matrix and Statistics
+
+           
+predict_gbm    A    B    C    D    E
+          A 1159   19    0    0    1
+          B    5  750   22    2    6
+          C    0   17  708   18    3
+          D    1    1    7  650   10
+          E    0    0    1    2  741
+
+Overall Statistics
+                                          
+               Accuracy : 0.9721          
+                 95% CI : (0.9666, 0.9769)
+    No Information Rate : 0.2826          
+    P-Value [Acc > NIR] : < 2.2e-16       
+                                          
+                  Kappa : 0.9647          
+                                          
+ Mcnemar's Test P-Value : NA              
+
+Statistics by Class:
+
+                     Class: A Class: B Class: C Class: D Class: E
+Sensitivity            0.9948   0.9530   0.9593   0.9673   0.9737
+Specificity            0.9932   0.9895   0.9888   0.9945   0.9991
+Pos Pred Value         0.9830   0.9554   0.9491   0.9716   0.9960
+Neg Pred Value         0.9980   0.9889   0.9911   0.9936   0.9941
+Prevalence             0.2826   0.1909   0.1790   0.1630   0.1846
+Detection Rate         0.2811   0.1819   0.1717   0.1577   0.1797
+Detection Prevalence   0.2860   0.1904   0.1809   0.1623   0.1805
+Balanced Accuracy      0.9940   0.9712   0.9741   0.9809   0.9864
+
+
+# Random Forest has the highest accuracy. We use random forest to predict cross validation data.
+
+predict_rf<-predict(modelfit,validdata)
+predict_rf
+
+1] B A B A A E D B A A B C B A E E A B B B
+Levels: A B C D E
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
